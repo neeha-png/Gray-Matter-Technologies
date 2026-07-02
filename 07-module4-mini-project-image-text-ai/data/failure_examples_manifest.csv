@@ -1,0 +1,5 @@
+filename,test_set_index,true_label,predicted_label,confidence
+failure_23_true-Ankle boot_pred-Sandal.png,23,Ankle boot,Sandal,1.0
+failure_26_true-Shirt_pred-Coat.png,26,Shirt,Coat,0.545
+failure_43_true-Sneaker_pred-Ankle boot.png,43,Sneaker,Ankle boot,0.853
+failure_49_true-Pullover_pred-Shirt.png,49,Pullover,Shirt,0.535

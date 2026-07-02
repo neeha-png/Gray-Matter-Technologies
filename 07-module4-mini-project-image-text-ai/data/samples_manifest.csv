@@ -1,0 +1,14 @@
+filename,true_label,test_set_index
+sample_00_Ankle-boot.png,Ankle-boot,0
+sample_01_Pullover.png,Pullover,1
+sample_02_Trouser.png,Trouser,2
+sample_03_Shirt.png,Shirt,4
+sample_04_Coat.png,Coat,6
+sample_05_Shirt.png,Shirt,7
+sample_06_Sandal.png,Sandal,8
+sample_07_Sneaker.png,Sneaker,9
+sample_08_Coat.png,Coat,10
+sample_09_Dress.png,Dress,13
+sample_10_Coat.png,Coat,14
+sample_11_Bag.png,Bag,18
+sample_12_T-shirt-top.png,T-shirt-top,19
