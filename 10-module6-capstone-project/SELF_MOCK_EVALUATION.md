@@ -62,32 +62,34 @@ just a topic that was read about.
 
 ## Module 6 — MLOps, Deployment & Latest Trends
 - [x] Model deployment (Flask/Streamlit) — projects 5, 8, 9
-- [ ] **Docker — written, config-validated, still not locally `docker
-      build`-verified.** `Dockerfile` is correct per `wrangler`'s config/type
-      checks (bindings/container resolved correctly), but Docker isn't
-      installed on this machine, so the image itself has never actually been
-      built end-to-end here. Will be built and smoke-tested for real by CI
-      on push (GitHub's Ubuntu runners ship Docker).
+- [x] **Docker — built and run locally, exactly as the brief asks.**
+      Installing Docker Desktop first required enabling WSL2 (needed
+      `wsl --install` from an elevated PowerShell plus a restart — a real,
+      not assumed, Windows prerequisite). Once running: `docker build`
+      succeeded, `docker run` started the container on port 5001, and
+      `/health`, `/predict`, and `/explain` were all hit for real against
+      the running container (not the local Flask dev server) — `/explain`
+      returned a genuine Groq-generated explanation. Container logs
+      confirmed clean gunicorn startup with 2 workers and no errors.
 - [x] CI/CD — `.github/workflows/ci.yml` written and YAML-validated
-      (lint + test + Docker build/smoke-test on push, nightly ETL cron);
-      **not yet run for real** — today's changes (Gemini wiring, the log
-      security fix) haven't been pushed yet, so CI hasn't executed against
-      this repo at all so far.
-- [x] Version control — **done.** `git init` in place, 11 project commits
-      plus a merge commit, pushed to
+      (lint + test + Docker build/smoke-test on push, nightly ETL cron).
+- [x] Version control — **done.** `git init` in place, 12+ commits pushed to
       `https://github.com/neeha-png/Gray-Matter-Technologies` (branch
       `main`), verified in sync with `git fetch` + `git log origin/main`.
-- [ ] **Cloud deployment — logged in and wired up, still not live.**
-      `wrangler whoami` confirms an authenticated Cloudflare account
-      (neehasm0@gmail.com) with the right token scopes (`containers`,
-      `workers`, etc.). The `GEMINI_API_KEY` secret has been uploaded to
-      Cloudflare via `wrangler secret put`, and the container class now
-      forwards it from the Worker's env into the Flask container's process
-      env (`envVars`), typechecked clean. **`wrangler deploy` itself has
-      deliberately not been run** — it's a live, billable action, and the
-      user asked to verify everything locally first. Local container dev
-      still needs WSL (Windows limitation, confirmed directly via `wrangler
-      dev`'s own error message, not assumed).
+- [ ] **Cloud deployment — partially live; container blocked on a real
+      billing decision, not a technical one.** `wrangler deploy` was run for
+      real: the Worker script, static front-end, and bindings all deployed
+      successfully to Cloudflare. The container push failed with a genuine
+      `401 Unauthorized` from Cloudflare's container registry — traced this
+      to **Cloudflare Containers requiring the Workers Paid plan
+      ($5/month, no free tier)**, confirmed via current docs/web search,
+      not assumed. Asked the user whether to upgrade; they chose to hold
+      off for now. So today: the static page + Worker routing are live on
+      Cloudflare; the container/API itself is not, purely because it
+      would cost real money and the user opted not to spend it yet. Local
+      container dev via `wrangler dev` still needs WSL for its container
+      simulation specifically (separate from the WSL now installed for
+      Docker Desktop) — confirmed via `wrangler dev`'s own error message.
 - [x] Monitoring — `monitoring/check_health.py`, tested against real
       logged predictions; correctly flagged a real sentiment-drift alert
       (50% vs. 68.7% training baseline) in a live test
@@ -115,16 +117,16 @@ just a topic that was read about.
 
 ## Bottom line
 
-Everything that could be verified **without a live/billable cloud action**
+Everything that can be verified **without ongoing real money being spent**
 has now been built and actually tested — the ML pipeline, the API, the
-monitoring, the ETL, the CI config, the Docker/Worker config, Git/GitHub,
-and Cloudflare login. Only one thing remains genuinely open, and it's by
-choice, not inability: `wrangler deploy` itself — ready to run,
-intentionally held back pending the user's go-ahead since it's a live,
-billable action. Everything else, including the GenAI add-on, is now
-live-tested end-to-end with real credentials. Docker remains locally
-unverified (no Docker on this
-machine) but is expected to build cleanly in CI. The "framework
-substitution" and "single-track" notes from Modules 4–5 are unchanged and
-are the most likely genuine assessment risk — worth a quick review of
-Keras syntax and transformers/CV/RecSys/time-series basics before test day.
+monitoring, the ETL, the CI config, Git/GitHub, Docker (built and run for
+real, locally), and the GenAI add-on (real Groq explanations, live).
+`wrangler deploy` was run for real too: the Worker and static front-end are
+genuinely live on Cloudflare. The one thing left open — deploying the
+container itself — turned out to need Cloudflare's $5/month Workers Paid
+plan (no free tier exists for Containers); the user was asked and chose
+not to spend that yet, so it's a deliberate, informed pause, not a gap in
+what's been built or tested. The "framework substitution" and
+"single-track" notes from Modules 4–5 are unchanged and are the most
+likely genuine assessment risk — worth a quick review of Keras syntax and
+transformers/CV/RecSys/time-series basics before test day.

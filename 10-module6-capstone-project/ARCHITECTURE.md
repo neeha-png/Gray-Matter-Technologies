@@ -67,14 +67,18 @@ Groq API (external, GenAI add-on)            Monitoring / ETL (offline)
   config itself validated correctly (bindings resolved, container detected);
   only the local Windows dev loop is blocked. WSL, macOS, or Linux CI runners
   are unaffected.
-- **Docker itself isn't installed on this development machine**, so the
-  image was validated via `wrangler`'s config/type checks and will be
-  built+smoke-tested for real in CI (GitHub Actions' Ubuntu runners ship
-  Docker) — but hasn't been locally `docker build`-verified end-to-end.
-- **Going live requires one more credential**: a Groq API key (free, no
-  card required, from console.groq.com), set as a Cloudflare secret and
-  never committed. Cloudflare login is already done. Everything else is
-  wired up and ready; actually deploying is one `wrangler deploy` away.
+- **Docker was installed, and the image was built and run for real**
+  (required enabling WSL2 first via `wsl --install`, then a restart).
+  `/health`, `/predict`, and `/explain` were all verified against the
+  running container directly, not just the local Flask dev server.
+- **Cloudflare Containers requires the $5/month Workers Paid plan** —
+  there's no free tier for Containers specifically (confirmed via current
+  Cloudflare docs). `wrangler deploy` was run for real: the Worker script
+  and static front-end deployed successfully and are genuinely live; the
+  container push failed with a real `401 Unauthorized` from Cloudflare's
+  registry until that plan is active. The user was asked and chose to hold
+  off on the $5/month upgrade for now, so the API/container is built,
+  tested, and ready, but not currently live on the public internet.
 - **The ETL step operates on a static public dataset**, standing in for a
   real live review feed — the refresh/dedupe *pattern* is real and tested
   (verified: second run correctly finds 0 new reviews), the *data source*
