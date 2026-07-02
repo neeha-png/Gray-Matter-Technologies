@@ -1,0 +1,7 @@
+# Auto-downloaded Fashion-MNIST dataset (~82 MB) -- regenerated automatically
+# by torchvision.datasets.FashionMNIST(download=True), called in
+# src/model.py's get_data_loaders(). No need to commit it.
+data/FashionMNIST/
+
+__pycache__/
+*.pyc
