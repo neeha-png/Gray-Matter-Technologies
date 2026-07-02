@@ -62,40 +62,69 @@ just a topic that was read about.
 
 ## Module 6 — MLOps, Deployment & Latest Trends
 - [x] Model deployment (Flask/Streamlit) — projects 5, 8, 9
-- [x] Docker — `Dockerfile` written; config validated via `wrangler`
-      (bindings/container resolved correctly); **not yet `docker build`-
-      verified locally** (Docker isn't installed on this machine) — will be
-      built and smoke-tested for real by CI on first push (GitHub's Ubuntu
-      runners have Docker preinstalled)
+- [ ] **Docker — written, config-validated, still not locally `docker
+      build`-verified.** `Dockerfile` is correct per `wrangler`'s config/type
+      checks (bindings/container resolved correctly), but Docker isn't
+      installed on this machine, so the image itself has never actually been
+      built end-to-end here. Will be built and smoke-tested for real by CI
+      on push (GitHub's Ubuntu runners ship Docker).
 - [x] CI/CD — `.github/workflows/ci.yml` written and YAML-validated
       (lint + test + Docker build/smoke-test on push, nightly ETL cron);
-      **not yet run for real** (needs an actual GitHub repo + push)
-- [ ] **Version control — not yet done.** Git isn't installed on this
-      machine yet. `.gitignore` is ready; `git init`/commit/push are the
-      next manual step once Git is installed (see README's "Next steps").
-- [ ] **Cloud deployment — prepared, not live.** `wrangler.jsonc` + Worker
-      code are written and config-validated; going live needs `wrangler
-      login` (interactive, can't be done on your behalf) plus your
-      Cloudflare account. Local container dev also needs WSL (Windows
-      limitation, confirmed directly, not assumed).
+      **not yet run for real** — today's changes (Gemini wiring, the log
+      security fix) haven't been pushed yet, so CI hasn't executed against
+      this repo at all so far.
+- [x] Version control — **done.** `git init` in place, 11 project commits
+      plus a merge commit, pushed to
+      `https://github.com/neeha-png/Gray-Matter-Technologies` (branch
+      `main`), verified in sync with `git fetch` + `git log origin/main`.
+- [ ] **Cloud deployment — logged in and wired up, still not live.**
+      `wrangler whoami` confirms an authenticated Cloudflare account
+      (neehasm0@gmail.com) with the right token scopes (`containers`,
+      `workers`, etc.). The `GEMINI_API_KEY` secret has been uploaded to
+      Cloudflare via `wrangler secret put`, and the container class now
+      forwards it from the Worker's env into the Flask container's process
+      env (`envVars`), typechecked clean. **`wrangler deploy` itself has
+      deliberately not been run** — it's a live, billable action, and the
+      user asked to verify everything locally first. Local container dev
+      still needs WSL (Windows limitation, confirmed directly via `wrangler
+      dev`'s own error message, not assumed).
 - [x] Monitoring — `monitoring/check_health.py`, tested against real
       logged predictions; correctly flagged a real sentiment-drift alert
       (50% vs. 68.7% training baseline) in a live test
 - [x] Data engineering / ETL — `etl/refresh_reviews.py`, tested twice
       (first run: 2,748 new reviews found; second run: correctly found 0 new)
-- [ ] **GenAI add-on — code complete, not live-tested.** `/explain` calls
-      Gemini; correctly returns 503 when no API key is configured (verified
-      in tests). Needs a real Gemini API key to confirm actual explanations
-      generate correctly.
+- [x] **GenAI add-on — live-tested end-to-end, working.** Gemini was tried
+      first: the key authenticated correctly, but the Google Cloud project
+      behind it had a hard **zero quota** for `gemini-2.0-flash` on the free
+      tier and required enabling billing to get any quota at all. Also
+      found and fixed a real bug during that test: the key was being logged
+      in plain text whenever the call failed (passed as a `?key=` query
+      param; `requests`' exception messages embed the full URL) — fixed by
+      switching to a header instead. Rather than ask for a card, **switched
+      `/explain` to Groq** (`api.groq.com`, OpenAI-compatible chat
+      completions, model `llama-3.3-70b-versatile`, confirmed free/no-card
+      via current docs). With a real `GROQ_API_KEY` supplied, ran the app
+      live in a browser end-to-end: a negative review correctly got
+      "The review was likely classified as 'negative' because it mentions
+      the product broke quickly and the customer had a bad experience with
+      the company's support," and a positive review got a matching
+      real explanation — both `/explain` calls returned `200`, confirmed
+      in the server logs with no key ever appearing in them. The key is
+      also uploaded as a real Cloudflare secret, ready for deployment.
 - [x] Architecture write-up — `ARCHITECTURE.md`
 
 ## Bottom line
 
-Everything that could be verified **without external accounts** has been
-built and actually tested (not just written) — the ML pipeline, the API,
-the monitoring, the ETL, the CI config, the Docker/Worker config. The three
-gaps above (Git/GitHub, live Cloudflare deployment, a real Gemini key) are
-credential-gated, not skill gaps, and are one login/key away from closing.
-The two "framework substitution" and "single-track" notes in Modules 4–5
+Everything that could be verified **without a live/billable cloud action**
+has now been built and actually tested — the ML pipeline, the API, the
+monitoring, the ETL, the CI config, the Docker/Worker config, Git/GitHub,
+and Cloudflare login. Only one thing remains genuinely open, and it's by
+choice, not inability: `wrangler deploy` itself — ready to run,
+intentionally held back pending the user's go-ahead since it's a live,
+billable action. Everything else, including the GenAI add-on, is now
+live-tested end-to-end with real credentials. Docker remains locally
+unverified (no Docker on this
+machine) but is expected to build cleanly in CI. The "framework
+substitution" and "single-track" notes from Modules 4–5 are unchanged and
 are the most likely genuine assessment risk — worth a quick review of
 Keras syntax and transformers/CV/RecSys/time-series basics before test day.

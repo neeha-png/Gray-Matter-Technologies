@@ -18,10 +18,10 @@ Cloudflare Worker  (worker/src/index.ts)
 Cloudflare Container  (Dockerfile, running src/api.py via gunicorn)
   │  - Loads sentiment_model.pkl (TF-IDF + Logistic Regression, from project 8)
   │  - /predict: text -> {sentiment, confidence}
-  │  - /explain: prediction -> calls Gemini API -> plain-English explanation
+  │  - /explain: prediction -> calls Groq API -> plain-English explanation
   │  - Every /predict call is logged to monitoring/logs/predictions.jsonl
   ▼
-Gemini API (external, GenAI add-on)          Monitoring / ETL (offline)
+Groq API (external, GenAI add-on)            Monitoring / ETL (offline)
   - one-sentence explanation of              - monitoring/check_health.py reads
     why a review was classified that way       the prediction log, flags drift
                                                 (sentiment mix vs. training
@@ -44,9 +44,11 @@ Gemini API (external, GenAI add-on)          Monitoring / ETL (offline)
   arbitrary Docker image, which is what the existing scikit-learn/joblib
   model needs. It's explicitly beta (no SLA, rolling deploys, manual load
   balancing via `getRandom`) — a real, documented trade-off, not hidden.
-- **GenAI add-on calls Gemini directly from the container**, not from the
+- **GenAI add-on calls Groq directly from the container**, not from the
   Worker — keeps the API key and prompt logic in one place (`src/api.py`),
-  and the Worker stays a thin router.
+  and the Worker stays a thin router. Groq was chosen over Gemini because
+  its free tier needs no credit card; Gemini required enabling billing on
+  this account even to stay within its free-tier limits.
 
 ## CI/CD (`.github/workflows/ci.yml`)
 
@@ -69,10 +71,10 @@ Gemini API (external, GenAI add-on)          Monitoring / ETL (offline)
   image was validated via `wrangler`'s config/type checks and will be
   built+smoke-tested for real in CI (GitHub Actions' Ubuntu runners ship
   Docker) — but hasn't been locally `docker build`-verified end-to-end.
-- **Going live requires credentials this assistant doesn't have**: a
-  Cloudflare account (`wrangler login`, interactive) and a Gemini API key
-  (set as a secret, never committed). Everything is wired up and ready;
-  actually deploying is one `wrangler deploy` away once you're logged in.
+- **Going live requires one more credential**: a Groq API key (free, no
+  card required, from console.groq.com), set as a Cloudflare secret and
+  never committed. Cloudflare login is already done. Everything else is
+  wired up and ready; actually deploying is one `wrangler deploy` away.
 - **The ETL step operates on a static public dataset**, standing in for a
   real live review feed — the refresh/dedupe *pattern* is real and tested
   (verified: second run correctly finds 0 new reviews), the *data source*

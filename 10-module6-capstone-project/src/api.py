@@ -1,7 +1,7 @@
 """Production version of the sentiment API from project 8, extended for the
 capstone with:
 - structured request/prediction logging (for monitoring)
-- a GenAI /explain endpoint (Gemini) that turns a raw prediction into a
+- a GenAI /explain endpoint (Groq) that turns a raw prediction into a
   plain-English explanation
 
 Run it:
@@ -23,11 +23,12 @@ LOG_DIR = pathlib.Path(__file__).resolve().parent.parent / "monitoring" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 PREDICTIONS_LOG = LOG_DIR / "predictions.jsonl"
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
-)
+# Groq's free tier needs no credit card (unlike Gemini, which required
+# billing to be enabled for this account) and speaks the same
+# OpenAI-compatible chat completions format most providers use.
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 app = Flask(__name__)
 model = joblib.load(MODEL_PATH)
@@ -58,6 +59,15 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
+
+
+@app.get("/")
+def index():
+    # In production the Worker serves src/static/ directly and only routes
+    # /health, /predict, /explain here. Locally, serving it from Flask too
+    # lets the page and the API share one origin so you can check the whole
+    # thing in a browser without Docker/Cloudflare.
+    return app.send_static_file("index.html")
 
 
 @app.get("/health")
@@ -92,9 +102,9 @@ def predict():
 @app.post("/explain")
 def explain():
     """GenAI add-on: turn the raw prediction into a one-sentence plain
-    English explanation, using Gemini. Requires GEMINI_API_KEY to be set."""
-    if not GEMINI_API_KEY:
-        return jsonify({"error": "GEMINI_API_KEY is not configured on this server"}), 503
+    English explanation, using Groq. Requires GROQ_API_KEY to be set."""
+    if not GROQ_API_KEY:
+        return jsonify({"error": "GROQ_API_KEY is not configured on this server"}), 503
 
     data = request.get_json(silent=True) or {}
     text = data.get("text")
@@ -114,15 +124,23 @@ def explain():
 
     try:
         response = requests.post(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": prompt}]}]},
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            json={
+                "model": GROQ_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 100,
+            },
             timeout=10,
         )
         response.raise_for_status()
         body = response.json()
-        explanation = body["candidates"][0]["content"]["parts"][0]["text"].strip()
+        explanation = body["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        logger.error(f"Gemini explain call failed: {e}")
+        # Log only the status/reason, never the exception's str() -- avoids
+        # ever writing the Authorization header or key into this log file.
+        status = getattr(getattr(e, "response", None), "status_code", "n/a")
+        logger.error(f"Groq explain call failed: status={status} ({type(e).__name__})")
         return jsonify({"error": "Could not generate an explanation right now"}), 502
 
     return jsonify({"text": text, "sentiment": sentiment, "explanation": explanation})
