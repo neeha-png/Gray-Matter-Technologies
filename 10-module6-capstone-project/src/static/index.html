@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review Triage Assistant</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; color: #262730; }
+  h1 { font-size: 2rem; margin-bottom: 8px; }
+  p.intro { color: #555; line-height: 1.5; }
+  select, textarea, button { font-size: 1rem; width: 100%; box-sizing: border-box; margin-top: 6px; }
+  textarea { height: 100px; padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+  select { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+  button { margin-top: 16px; padding: 10px; border-radius: 6px; border: none; background: #FF4B4B; color: white; cursor: pointer; }
+  button:hover { background: #e03d3d; }
+  label { font-weight: 600; margin-top: 20px; display: block; }
+  .result { margin-top: 20px; padding: 16px; border-radius: 6px; display: none; }
+  .result.positive { background: #e6f4ea; color: #1e4620; display: block; }
+  .result.negative { background: #fde7e9; color: #601a1a; display: block; }
+  .result.error { background: #fff4e5; color: #664500; display: block; }
+  .explanation { margin-top: 10px; font-style: italic; color: #444; }
+  .loading { margin-top: 16px; color: #555; }
+  details { margin-top: 12px; }
+</style>
+</head>
+<body>
+  <h1>Review Triage Assistant</h1>
+  <p class="intro">
+    Paste a customer review below and this tool will instantly flag whether
+    it needs a team member's attention -- so support staff can focus on
+    unhappy customers first instead of reading every review in order.
+  </p>
+
+  <label for="example">Try an example review</label>
+  <select id="example">
+    <option value="">-- pick an example --</option>
+    <option value="This exceeded my expectations, works perfectly and arrived early!">Happy customer</option>
+    <option value="This broke after two days and support never replied to my emails.">Angry customer</option>
+    <option value="It's fine I guess, does what it says but nothing special.">Neutral / mixed</option>
+  </select>
+
+  <label for="reviewText">Customer review</label>
+  <textarea id="reviewText" placeholder="Type or paste a review..."></textarea>
+
+  <button id="analyzeBtn">Analyze this review</button>
+
+  <div id="loading" class="loading" style="display:none;">Checking review...</div>
+  <div id="result" class="result"></div>
+
+  <script>
+    // Same origin the page is served from -- the Worker routes /predict and
+    // /explain through to the containerized Flask API. Override for local
+    // testing against http://localhost:5000 by editing this constant.
+    const API_URL = window.API_BASE_URL || "";
+
+    const exampleSelect = document.getElementById("example");
+    const reviewText = document.getElementById("reviewText");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const loadingEl = document.getElementById("loading");
+    const resultEl = document.getElementById("result");
+
+    exampleSelect.addEventListener("change", () => {
+      if (exampleSelect.value) reviewText.value = exampleSelect.value;
+    });
+
+    function confidenceNote(confidence) {
+      if (confidence < 0.65) return "though it isn't very confident -- a human may want to double-check";
+      if (confidence < 0.85) return "with reasonable confidence";
+      return "with high confidence";
+    }
+
+    async function analyze() {
+      const text = reviewText.value.trim();
+      resultEl.className = "result";
+
+      if (!text) {
+        resultEl.className = "result error";
+        resultEl.textContent = "Please enter or select a review first.";
+        return;
+      }
+
+      loadingEl.style.display = "block";
+      try {
+        const response = await fetch(`${API_URL}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          resultEl.className = "result error";
+          resultEl.textContent = `The service couldn't process that review: ${body.error || "unknown error"}`;
+          return;
+        }
+
+        const result = await response.json();
+        const note = confidenceNote(result.confidence);
+        resultEl.className = `result ${result.sentiment === "negative" ? "negative" : "positive"}`;
+        resultEl.innerHTML = result.sentiment === "negative"
+          ? `<strong>Needs attention</strong> -- this customer seems unhappy (${note}).`
+          : `<strong>No action needed</strong> -- this customer seems happy (${note}).`;
+
+        // GenAI add-on: ask for a plain-English explanation (best-effort --
+        // if the explain service isn't configured, we just skip it quietly).
+        try {
+          const explainResponse = await fetch(`${API_URL}/explain`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(result),
+          });
+          if (explainResponse.ok) {
+            const explainResult = await explainResponse.json();
+            const p = document.createElement("p");
+            p.className = "explanation";
+            p.textContent = explainResult.explanation;
+            resultEl.appendChild(p);
+          }
+        } catch (e) {
+          // explanation is a nice-to-have, not essential -- fail silently
+        }
+      } catch (e) {
+        resultEl.className = "result error";
+        resultEl.textContent = "We couldn't reach the review-checking service. Please try again in a moment.";
+      } finally {
+        loadingEl.style.display = "none";
+      }
+    }
+
+    analyzeBtn.addEventListener("click", analyze);
+  </script>
+</body>
+</html>

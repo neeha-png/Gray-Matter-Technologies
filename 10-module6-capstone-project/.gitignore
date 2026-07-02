@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Large / regenerable model and data artifacts
+src/sentiment_model.pkl
+data/incoming/
+monitoring/logs/
+
+# Node / Cloudflare Worker
+worker/node_modules/
+worker/worker-configuration.d.ts
+.wrangler/
+
+# Secrets -- never commit these
+.env
+.dev.vars
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

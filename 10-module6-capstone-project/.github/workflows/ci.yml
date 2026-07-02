@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC daily, drives the nightly-etl job below
+
+jobs:
+  test:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest ruff
+
+      - name: Lint (ruff)
+        run: ruff check src/ tests/ etl/ monitoring/ --exit-zero
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  docker-build:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t review-triage-assistant:ci .
+
+      - name: Smoke-test the built image
+        run: |
+          docker run -d -p 5000:5000 --name smoke-test review-triage-assistant:ci
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:5000/health; then break; fi
+            sleep 2
+          done
+          curl -sf http://localhost:5000/health
+          docker logs smoke-test
+          docker stop smoke-test
+
+  nightly-etl:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pandas
+
+      - name: Refresh review data
+        run: python etl/refresh_reviews.py

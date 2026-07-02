@@ -1,0 +1,32 @@
+{
+  "name": "review-triage-assistant",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-10",
+  "assets": {
+    "directory": "../src/static",
+    "binding": "ASSETS",
+    "run_worker_first": ["/health", "/predict", "/explain"]
+  },
+  "containers": [
+    {
+      "class_name": "SentimentApi",
+      "image": "../Dockerfile",
+      "instance_type": "lite",
+      "max_instances": 3
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SENTIMENT_CONTAINER",
+        "class_name": "SentimentApi"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SentimentApi"]
+    }
+  ]
+}
